@@ -1,6 +1,6 @@
 ---
 document_id: TECH-03
-version: 1.2
+version: 1.3
 status: Final
 priority: P1
 last_updated: 2026-01-30
@@ -141,16 +141,30 @@ Authorization: Bearer <jwt>
 
 **Success (200 OK):**
 
+The response now includes two layers: `live` (last 30 minutes) and `recent` (30 min - 2 hours):
+
 ```json
 {
-  "cells": [
-    { "lat": 33.5731, "lng": -7.5898, "weight": 15 },
-    { "lat": 33.5740, "lng": -7.5905, "weight": 8 },
-    { "lat": 33.5725, "lng": -7.5912, "weight": 23 },
-    { "lat": 33.5738, "lng": -7.5888, "weight": 5 }
-  ],
-  "totalUsers": 51,
-  "activityLevel": "high",
+  "live": {
+    "cells": [
+      { "lat": 33.5731, "lng": -7.5898, "weight": 15 },
+      { "lat": 33.5740, "lng": -7.5905, "weight": 8 }
+    ],
+    "totalUsers": 23,
+    "activityLevel": "medium"
+  },
+  "recent": {
+    "cells": [
+      { "lat": 33.5725, "lng": -7.5912, "weight": 12 },
+      { "lat": 33.5738, "lng": -7.5888, "weight": 5 }
+    ],
+    "totalUsers": 28,
+    "activityLevel": "medium"
+  },
+  "combined": {
+    "totalUsers": 51,
+    "activityLevel": "high"
+  },
   "generatedAt": "2026-01-30T14:32:00Z",
   "bounds": {
     "north": 33.578,
@@ -165,9 +179,15 @@ Authorization: Bearer <jwt>
 
 ```typescript
 interface HeatmapResponse {
-  cells: HeatmapCell[];
-  totalUsers: number;
-  activityLevel: "low" | "medium" | "high";
+  // Live data: last 30 minutes (high confidence)
+  live: HeatmapLayer;
+  // Recent data: 30 min - 2 hours (lower weight)
+  recent: HeatmapLayer;
+  // Combined statistics
+  combined: {
+    totalUsers: number;
+    activityLevel: "low" | "medium" | "high";
+  };
   generatedAt: string;
   bounds: {
     north: number;
@@ -175,6 +195,12 @@ interface HeatmapResponse {
     east: number;
     west: number;
   };
+}
+
+interface HeatmapLayer {
+  cells: HeatmapCell[];
+  totalUsers: number;
+  activityLevel: "low" | "medium" | "high";
 }
 
 interface HeatmapCell {
@@ -253,21 +279,22 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
     const { lat, lng, radius, cellSize } = parseResult.data;
 
-    // 3. Execute PostGIS aggregation query
-    const cells = await sql`
+    // 3. Execute PostGIS aggregation queries for live and recent data
+
+    // Live data: last 30 minutes
+    const liveCells = await sql`
       WITH active_locations AS (
-        -- Get only non-expired, unique user locations
         SELECT DISTINCT ON (user_id)
           user_id,
           geom
         FROM user_locations
-        WHERE expires_at > NOW()
+        WHERE updated_at > NOW() - INTERVAL '30 minutes'
           AND ST_DWithin(
             geom::geography,
             ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
             ${radius}
           )
-        ORDER BY user_id, recorded_at DESC
+        ORDER BY user_id, updated_at DESC
       )
       SELECT
         ROUND(ST_Y(geom)::numeric, ${cellSize}) as lat,
@@ -280,28 +307,71 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       ORDER BY weight DESC
     `;
 
-    // 4. Calculate totals and activity level
-    const totalUsers = cells.reduce((sum, cell) => sum + cell.weight, 0);
-    const activityLevel = getActivityLevel(totalUsers);
+    // Recent data: 30 min - 2 hours (for enhanced heatmap)
+    const recentCells = await sql`
+      WITH recent_locations AS (
+        SELECT DISTINCT ON (user_id)
+          user_id,
+          geom
+        FROM user_locations
+        WHERE updated_at > NOW() - INTERVAL '2 hours'
+          AND updated_at <= NOW() - INTERVAL '30 minutes'
+          AND ST_DWithin(
+            geom::geography,
+            ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+            ${radius}
+          )
+        ORDER BY user_id, updated_at DESC
+      )
+      SELECT
+        ROUND(ST_Y(geom)::numeric, ${cellSize}) as lat,
+        ROUND(ST_X(geom)::numeric, ${cellSize}) as lng,
+        COUNT(*)::int as weight
+      FROM recent_locations
+      GROUP BY
+        ROUND(ST_Y(geom)::numeric, ${cellSize}),
+        ROUND(ST_X(geom)::numeric, ${cellSize})
+      ORDER BY weight DESC
+    `;
+
+    // 4. Calculate totals and activity levels
+    const liveTotal = liveCells.reduce((sum, cell) => sum + cell.weight, 0);
+    const recentTotal = recentCells.reduce((sum, cell) => sum + cell.weight, 0);
+    const combinedTotal = liveTotal + recentTotal;
 
     // 5. Calculate bounds
     const bounds = calculateBounds(lat, lng, radius);
 
-    // 6. Return response
+    // 6. Return response with live and recent layers
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "max-age=25", // Cache for 25 seconds
+        "Cache-Control": "max-age=25",
       },
       body: JSON.stringify({
-        cells: cells.map((c) => ({
-          lat: parseFloat(c.lat),
-          lng: parseFloat(c.lng),
-          weight: c.weight,
-        })),
-        totalUsers,
-        activityLevel,
+        live: {
+          cells: liveCells.map((c) => ({
+            lat: parseFloat(c.lat),
+            lng: parseFloat(c.lng),
+            weight: c.weight,
+          })),
+          totalUsers: liveTotal,
+          activityLevel: getActivityLevel(liveTotal),
+        },
+        recent: {
+          cells: recentCells.map((c) => ({
+            lat: parseFloat(c.lat),
+            lng: parseFloat(c.lng),
+            weight: c.weight,
+          })),
+          totalUsers: recentTotal,
+          activityLevel: getActivityLevel(recentTotal),
+        },
+        combined: {
+          totalUsers: combinedTotal,
+          activityLevel: getActivityLevel(combinedTotal),
+        },
         generatedAt: new Date().toISOString(),
         bounds,
       }),
@@ -661,9 +731,10 @@ const HEATMAP_STYLE = {
 };
 
 export function HeatmapLayer({ data }: { data: HeatmapResponse }) {
-  const geojson = useMemo(() => ({
+  // Live data: full opacity
+  const liveGeojson = useMemo(() => ({
     type: "FeatureCollection",
-    features: data.cells.map((cell) => ({
+    features: data.live.cells.map((cell) => ({
       type: "Feature",
       geometry: {
         type: "Point",
@@ -673,17 +744,104 @@ export function HeatmapLayer({ data }: { data: HeatmapResponse }) {
         weight: cell.weight,
       },
     })),
-  }), [data]);
+  }), [data.live]);
+
+  // Recent data: reduced opacity (50%)
+  const recentGeojson = useMemo(() => ({
+    type: "FeatureCollection",
+    features: data.recent.cells.map((cell) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [cell.lng, cell.lat],
+      },
+      properties: {
+        weight: cell.weight,
+      },
+    })),
+  }), [data.recent]);
 
   return (
-    <MapboxGL.ShapeSource id="heatmap-source" shape={geojson}>
-      <MapboxGL.HeatmapLayer
-        id="heatmap-layer"
-        style={HEATMAP_STYLE}
-      />
-    </MapboxGL.ShapeSource>
+    <>
+      {/* Recent activity layer (semi-transparent) */}
+      <MapboxGL.ShapeSource id="heatmap-recent-source" shape={recentGeojson}>
+        <MapboxGL.HeatmapLayer
+          id="heatmap-recent-layer"
+          style={{
+            ...HEATMAP_STYLE,
+            heatmapOpacity: 0.4, // 50% opacity for recent data
+          }}
+        />
+      </MapboxGL.ShapeSource>
+
+      {/* Live activity layer (full opacity) */}
+      <MapboxGL.ShapeSource id="heatmap-live-source" shape={liveGeojson}>
+        <MapboxGL.HeatmapLayer
+          id="heatmap-live-layer"
+          style={HEATMAP_STYLE}
+        />
+      </MapboxGL.ShapeSource>
+    </>
   );
 }
+```
+
+---
+
+## Visual Distinction: Live vs Recent
+
+The heatmap displays two layers with distinct visual treatment:
+
+### Layer Rendering
+
+| Layer | Opacity | Time Window | Purpose |
+|-------|---------|-------------|---------|
+| **Live** | 100% (0.8) | Last 30 minutes | High-confidence current activity |
+| **Recent** | 50% (0.4) | 30 min - 2 hours | Historical context |
+
+### UI Labels
+
+The seller app displays clear labels to help interpret the data:
+
+```typescript
+// packages/apps/seller/src/components/HeatmapLegend.tsx
+
+export function HeatmapLegend({ data }: { data: HeatmapResponse }) {
+  return (
+    <View style={styles.legend}>
+      <View style={styles.row}>
+        <View style={[styles.indicator, styles.liveIndicator]} />
+        <Text style={styles.label}>
+          Live users ({data.live.totalUsers})
+        </Text>
+      </View>
+      <View style={styles.row}>
+        <View style={[styles.indicator, styles.recentIndicator]} />
+        <Text style={styles.label}>
+          Recent activity ({data.recent.totalUsers})
+        </Text>
+      </View>
+      <Text style={styles.sublabel}>
+        Recent: users seen in last 2 hours
+      </Text>
+    </View>
+  );
+}
+```
+
+### Combined Activity Display
+
+```
+┌──────────────────────────────────────────┐
+│  Nearby Activity                    [i]  │
+├──────────────────────────────────────────┤
+│  ● Live users: 23                        │
+│  ○ Recent activity: 28                   │
+│  ─────────────────────────               │
+│  Total footprint: 51 users (HIGH)        │
+│                                          │
+│  Recent = users seen in last 2 hours     │
+└──────────────────────────────────────────┘
 ```
 
 ---
@@ -749,7 +907,9 @@ logger.info("Heatmap generated", {
 | **Aggregation** | Cell buckets (4 decimal = ~11m) |
 | **Deduplication** | DISTINCT ON user_id |
 | **Index** | SP-GiST on geom column |
-| **Response format** | JSON or GeoJSON |
+| **Response format** | JSON with `live` and `recent` layers |
+| **Live window** | Last 30 minutes (full opacity) |
+| **Recent window** | 30 min - 2 hours (50% opacity) |
 | **Cache** | 25 seconds client-side |
 | **Free tier** | Activity level only (no cells) |
 
@@ -762,13 +922,15 @@ logger.info("Heatmap generated", {
 
 **Dependencies**
 - TECH-01: Section 3
-- TECH-02: Section 2
+- TECH-02: Section 2 (Background Location Strategy)
 
 **Related Specs**
 - TECH-05: Section 2
+- TECH-06: Section 2 (API response schema)
 - DES-01: Section 1
 - DATA-01: Section 2
 - THREAD-01: Section 3
+- ADR-002: Background Location Strategy
 
 **Implementation Guides**
 - GUIDE-02: Section 4
@@ -777,6 +939,7 @@ logger.info("Heatmap generated", {
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.3 | 2026-01-31 | Engineering Lead | Added live/recent layers with 2-hour lookback, visual distinction guidance |
 | 1.2 | 2026-01-30 | Engineering Lead | Updated terminology for cell aggregation |
 | 1.1 | 2026-01-30 | Engineering Lead | Added data dictionary and thread references |
 | 1.0 | 2026-01-30 | Engineering Lead | Standardized metadata and cross-references |

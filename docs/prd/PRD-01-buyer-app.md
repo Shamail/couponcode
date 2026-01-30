@@ -1,6 +1,6 @@
 ---
 document_id: PRD-01
-version: 1.2
+version: 1.3
 status: Final
 priority: P0
 last_updated: 2026-01-30
@@ -61,6 +61,8 @@ The Buyer App is the consumer-facing mobile application that makes nearby saving
 | B-014 | Buyer | See distance to each deal | I can decide if it's worth walking | P0 |
 | B-015 | Buyer | See time remaining on deals | I feel urgency to act | P0 |
 | B-016 | Buyer | Receive push notifications for limited-time deals | I don't miss time-sensitive offers | P0 |
+| B-017 | Buyer | Get notified when I'm near a deal even if the app is closed | I can save money without actively checking the app | P0 |
+| B-018 | Buyer | Control whether I receive nearby deal alerts | I can manage my notification preferences | P1 |
 
 ### Epic 3: Deal Claiming & Redemption
 
@@ -281,21 +283,27 @@ function truncateCoordinate(coord: number): number {
 │                     │                                        │
 │                     ▼                                        │
 │   2. Show value proposition screen:                         │
-│      "Allow location to discover deals within 500m"         │
+│      "Allow location to discover deals nearby and           │
+│       get notified when you're near one"                    │
 │                     │                                        │
 │                     ▼                                        │
-│   3. System permission prompt appears                       │
+│   3. Request "When In Use" permission only                  │
+│      (Geofencing works with this permission level)          │
 │                     │                                        │
 │        ┌───────────┴───────────┐                            │
 │        ▼                       ▼                            │
 │   [GRANTED]               [DENIED]                          │
 │        │                       │                            │
 │        ▼                       ▼                            │
-│   Start tracking          Show limited mode:                │
-│   Show full map           "Enable location in Settings"     │
+│   Start foreground        Show limited mode:                │
+│   tracking + Register     "Enable location in Settings"     │
+│   geofences for           (No deal discovery available)     │
+│   nearby deals                                              │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Note:** We only request "When In Use" permission. Geofencing (background deal alerts) works with this permission level on iOS. No "Always" permission upgrade is required.
 
 **Battery Considerations:**
 
@@ -305,6 +313,56 @@ function truncateCoordinate(coord: number): number {
 | Distance interval | 50m | Only update on significant movement |
 | Time interval | 30s | Cap update frequency |
 | Background tracking | Disabled | Preserves battery, respects privacy |
+| Geofencing (20 zones) | < 0.5%/day | OS-managed, zero GPS usage |
+
+---
+
+### F2.5: Background Deal Alerts (Geofencing)
+
+#### Description
+Users receive notifications when they're near a store with an active deal, even when the app is closed. This uses OS-level geofencing which has near-zero battery impact.
+
+#### How It Works
+
+1. When the user opens the app, nearby deals are fetched
+2. Geofences (150m radius) are registered around stores with active deals
+3. When the user enters a geofence, they receive a local notification
+4. Tapping the notification opens the deal detail screen
+
+#### Technical Implementation
+
+- Uses `expo-location` geofencing with `expo-task-manager` for background tasks
+- Maximum 20 geofences registered (iOS limit)
+- Geofences refresh when app is opened or user moves significantly (500m)
+- 30-minute cooldown between notifications for the same store
+
+#### Settings
+
+Users can toggle "Deal alerts when nearby" in Settings:
+
+```
+┌──────────────────────────────────────────┐
+│  Notifications                           │
+├──────────────────────────────────────────┤
+│  Deal alerts when nearby          [ON]   │
+│  Get notified when you're near a store   │
+│  with an active deal. Uses minimal       │
+│  battery.                                │
+│                                          │
+│  Limited-time deal alerts         [ON]   │
+│  Push notifications for flash deals      │
+└──────────────────────────────────────────┘
+```
+
+#### Notification Example
+
+```
+┌──────────────────────────────────────────┐
+│  Frictionless                    2m ago  │
+│  Deal nearby at Café Central!            │
+│  20% off any coffee - tap to view        │
+└──────────────────────────────────────────┘
+```
 
 ---
 
@@ -690,12 +748,15 @@ The Profile screen summarizes membership tier, total savings, and activity, with
 - DES-01: Section 1
 
 **Related Specs**
+- TECH-02: Section on Background Location Strategy
+- TECH-05: Section 5 (Background Geofencing)
 - TECH-06: Section 2
 - METRICS-03: Section 3
 - DATA-01: Section 2
 - THREAD-01: Section 3
 - THREAD-02: Section 3
 - THREAD-03: Section 3
+- ADR-002: Background Location Strategy
 
 **Implementation Guides**
 - GUIDE-01: Section 2
@@ -704,6 +765,7 @@ The Profile screen summarizes membership tier, total savings, and activity, with
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.3 | 2026-01-31 | Product Lead | Added background deal alerts (geofencing), user stories B-017/B-018 |
 | 1.2 | 2026-01-30 | Product Lead | Updated UI specs and terminology |
 | 1.1 | 2026-01-30 | Product Lead | Added data dictionary and thread references |
 | 1.0 | 2026-01-30 | Product Lead | Standardized metadata and cross-references |

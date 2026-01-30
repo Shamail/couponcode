@@ -1,16 +1,19 @@
 ---
 document_id: BRAND-02
-version: 2.0
+version: 2.1
 status: Final
 priority: P1
 last_updated: 2026-01-30
 owner: Brand Lead
 dependencies:
   - BRAND-01
+  - BRAND-06
 related_documents:
   - PRD-01
   - GUIDE-01
   - DES-03
+  - DES-07
+  - DES-14
 ---
 
 # BRAND-02: Membership & Rewards
@@ -72,7 +75,33 @@ Points reflect activity and unlock membership tiers. They are a simple accountin
 
 ---
 
-## 4. Member Benefits in Product
+## 4. Visual Tier Badges
+
+### Badge Style
+
+- Shape: rounded pill or compact shield
+- Size: 24px height
+- Icon: single simple mark (see BRAND-06)
+- Text: `labelSmall` (12pt, 500)
+
+### Tier Colors
+
+| Tier | Color |
+| --- | --- |
+| Bronze | `#CD7F32` |
+| Silver | `#A1A1AA` |
+| Gold | `#F59E0B` |
+| Platinum | `#94A3B8` |
+
+### Placement
+
+- Profile header (primary)
+- Wallet deal cards (secondary)
+- Avoid placement on map markers
+
+---
+
+## 5. Member Benefits in Product
 
 ### Stock Visibility (Silver+)
 
@@ -91,7 +120,7 @@ Points reflect activity and unlock membership tiers. They are a simple accountin
 
 ---
 
-## 5. Consistency Bonuses (Optional)
+## 6. Consistency Bonuses (Optional)
 
 To encourage regular use without pressure, a light-touch consistency bonus can be tested:
 
@@ -102,7 +131,7 @@ Streaks are not required for core benefits and are never shown as a warning or c
 
 ---
 
-## 6. Anti-Patterns (What We Avoid)
+## 7. Anti-Patterns (What We Avoid)
 
 - No public leaderboards
 - No point loss or penalties
@@ -111,7 +140,7 @@ Streaks are not required for core benefits and are never shown as a warning or c
 
 ---
 
-## 7. Example Member Journey
+## 8. Example Member Journey
 
 **Morning:** Opens the app on the commute and sees "2 deals nearby".
 
@@ -127,10 +156,13 @@ The experience feels useful and rewarding, not competitive.
 
 **Dependencies**
 - BRAND-01: Section 2
+- BRAND-06: Section 3
 
 **Related Specs**
 - PRD-01: Section 4
 - DES-03: Section 2
+- DES-07: Section 4
+- DES-14: Section 2
 
 **Implementation Guides**
 - GUIDE-01: Section 2
@@ -139,5 +171,6 @@ The experience feels useful and rewarding, not competitive.
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 2.1 | 2026-01-30 | Brand Lead | Added tier badge requirements and placement |
 | 2.0 | 2026-01-30 | Brand Lead | Shifted to membership & rewards model |
 | 1.0 | 2026-01-30 | Brand Lead | Standardized metadata and cross-references |

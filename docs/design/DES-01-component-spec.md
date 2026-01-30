@@ -1,6 +1,6 @@
 ---
 document_id: DES-01
-version: 1.2
+version: 1.3
 status: Final
 priority: P1
 last_updated: 2026-01-30
@@ -12,6 +12,24 @@ related_documents:
   - PRD-02
   - DES-02
   - DES-03
+  - DES-04
+  - DES-05
+  - DES-06
+  - DES-07
+  - DES-08
+  - DES-09
+  - DES-10
+  - DES-11
+  - DES-12
+  - DES-13
+  - DES-14
+  - DES-15
+  - DES-17
+  - DES-18
+  - DES-19
+  - BRAND-04
+  - BRAND-05
+  - BRAND-08
   - TECH-05
   - THREAD-02
 ---
@@ -1521,6 +1539,26 @@ const styles = StyleSheet.create({
 </TouchableOpacity>
 ```
 
+## 8. Design System Cross-References
+
+Use these documents as the canonical source for the following areas:
+
+- **Design tokens:** DES-04
+- **Design principles:** DES-05
+- **Layout system:** DES-06
+- **Iconography:** DES-07
+- **Component states:** DES-08
+- **Theming:** DES-09
+- **Core components:** DES-10
+- **Containers:** DES-11
+- **Navigation components:** DES-12
+- **Feedback components:** DES-13
+- **Data display:** DES-14
+- **Form patterns:** DES-15
+- **Map patterns:** DES-17
+- **Localization patterns:** DES-18
+- **Offline patterns:** DES-19
+
 ## Related Documents
 
 **Dependencies**
@@ -1543,6 +1581,7 @@ const styles = StyleSheet.create({
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.3 | 2026-01-30 | Design Lead | Added cross-references to new design docs |
 | 1.2 | 2026-01-30 | Design Lead | Updated palette and new components |
 | 1.1 | 2026-01-30 | Design Lead | Added Lite Mode specification |
 | 1.0 | 2026-01-30 | Design Lead | Standardized metadata and cross-references |

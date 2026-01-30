@@ -1,6 +1,6 @@
 ---
 document_id: META-README
-version: 1.2
+version: 1.3
 status: Final
 priority: P0
 last_updated: 2026-01-30
@@ -63,10 +63,36 @@ Use this README as the master index. Each document includes standardized metadat
 | TECH-10 | Security & Compliance | tech | P1 | Final | CNDP alignment, privacy controls |
 | TECH-11 | Failure Modes & Resilience | tech | P1 | Final | Runbooks for outages and latency |
 | DES-01 | Component Specifications | design | P1 | Final | Core UI components and map system |
-| DES-02 | Accessibility Guidelines | design | P2 | Final | WCAG-aligned mobile accessibility |
-| DES-03 | Motion Guidelines | design | P2 | Final | Animation standards and transitions |
+| DES-02 | Accessibility Guidelines | design | P0 | Final | WCAG-aligned mobile accessibility |
+| DES-03 | Motion Guidelines | design | P1 | Final | Animation standards and transitions |
+| DES-04 | Design Tokens | design | P0 | Final | Single source of truth for tokens |
+| DES-05 | Design Principles | design | P1 | Final | Philosophy and decision framework |
+| DES-06 | Layout System | design | P1 | Final | Grid, spacing, safe areas, RTL |
+| DES-07 | Iconography | design | P1 | Final | UI icon standards and usage |
+| DES-08 | Component States | design | P0 | Final | Interactive states across UI |
+| DES-09 | Theming Architecture | design | P1 | Final | Dark mode and theme structure |
+| DES-10 | Core Components | design | P0 | Final | Buttons, inputs, selection controls |
+| DES-11 | Container Components | design | P1 | Final | Cards, sheets, modals |
+| DES-12 | Navigation Components | design | P1 | Final | Tab bar, headers, search |
+| DES-13 | Feedback Components | design | P0 | Final | Toasts, alerts, loading |
+| DES-14 | Data Display Components | design | P1 | Final | Lists, badges, avatars |
+| DES-15 | Form Patterns | design | P1 | Final | Validation and form flows |
+| DES-16 | Navigation Patterns | design | P2 | Final | User flow patterns |
+| DES-17 | Map Patterns | design | P1 | Final | Map interactions and overlays |
+| DES-18 | Localization Patterns | design | P1 | Final | RTL and multilingual UI |
+| DES-19 | Offline & Degraded Patterns | design | P2 | Final | Offline behavior and recovery |
+| BRAND-00 | Brand Overview & Manifesto | brand | P0 | Final | Mission, vision, positioning |
 | BRAND-01 | Voice & Tone Guide | brand | P1 | Final | Brand language and tone pillars |
 | BRAND-02 | Membership & Rewards | brand | P1 | Final | Membership tiers and reward design |
+| BRAND-03 | Logo & Marks | brand | P0 | Final | Logo system and usage |
+| BRAND-04 | Color System | brand | P0 | Final | Full palette and accessibility |
+| BRAND-05 | Typography | brand | P1 | Final | Type families and scale |
+| BRAND-06 | Iconography | brand | P1 | Final | Brand icon system |
+| BRAND-07 | Imagery & Photography | brand | P2 | Final | Photo direction and usage |
+| BRAND-08 | Map Visual Identity | brand | P1 | Final | Map styling and marker identity |
+| BRAND-09 | Localization Guidelines | brand | P1 | Final | Arabic/French/RTL guidance |
+| BRAND-10 | Brand Applications | brand | P2 | Final | App store, social, merchant assets |
+| BRAND-11 | Asset Library Index | brand | P2 | Final | Asset structure and governance |
 | BIZ-01 | Monetization Model | business | P0 | Final | Revenue model and pricing |
 | BIZ-02 | Unit Economics | business | P1 | Final | LTV, CAC, margin model |
 | BIZ-03 | GTM Strategy | business | P1 | Final | Launch phases, channels, partnerships |
@@ -115,10 +141,11 @@ Use this README as the master index. Each document includes standardized metadat
 - Threads: THREAD-03, THREAD-04
 
 **Design**
-- System: DES-01
-- Accessibility: DES-02
-- Motion: DES-03
-- Brand tone: BRAND-01, BRAND-02
+- System foundations: DES-04, DES-06, DES-08
+- Components: DES-01, DES-10, DES-13, DES-14
+- Patterns: DES-15, DES-17, DES-18, DES-19
+- Accessibility & motion: DES-02, DES-03
+- Brand: BRAND-00 to BRAND-11
 
 **Operations**
 - Merchant ops: OPS-01, OPS-02
@@ -207,6 +234,7 @@ Ownership and review cadence should be captured in META-TRACKER.
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.3 | 2026-01-30 | Documentation Lead | Added brand and design system expansion |
 | 1.2 | 2026-01-30 | Documentation Lead | Updated rebrand terminology and titles |
 | 1.1 | 2026-01-30 | Documentation Lead | Added data, ADRs, and thread inventory |
 | 1.0 | 2026-01-30 | Documentation Lead | Initial navigation hub and standards |

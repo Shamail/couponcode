@@ -1,14 +1,17 @@
 ---
 document_id: BRAND-01
-version: 2.0
+version: 2.1
 status: Final
 priority: P1
 last_updated: 2026-01-30
 owner: Brand Lead
 dependencies:
   - STRAT-01
+  - BRAND-00
 related_documents:
   - BRAND-02
+  - BRAND-04
+  - BRAND-09
   - DES-01
   - GUIDE-01
   - GUIDE-02
@@ -18,7 +21,7 @@ related_documents:
 
 ## Executive Summary
 
-This guide defines the Frictionless brand voice for the next phase: clear, helpful, confident, and warm. The experience should feel like a modern utility app with a lifestyle edge—trustworthy, calm, and easy to act on.
+This guide defines the Frictionless brand voice: clear, helpful, confident, and warm. The experience should feel like a modern utility app with a lifestyle edge—trustworthy, calm, and easy to act on.
 
 The goal is simple: help people discover nearby deals without noise or gimmicks.
 
@@ -53,6 +56,15 @@ We are not a coupon warehouse. We are a **nearby discovery tool** that turns sho
 | **Helpful** | Guidance without pressure | "Tap to see details" |
 | **Confident** | Calm, reliable, not salesy | "Saved 45 DH today" |
 | **Warm** | Friendly and local | "Enjoy your coffee" |
+
+### Audience Modulation
+
+| Audience | Tone Shift | Example |
+| --- | --- | --- |
+| Shoppers | Friendly, quick | "Nearby deal ready" |
+| Merchants | Professional, respectful | "Deal published" |
+| Support | Calm, empathetic | "We’re here to help" |
+| System alerts | Neutral, direct | "Location required" |
 
 ### Voice Do's and Don'ts
 
@@ -227,9 +239,28 @@ Keep language warm, short, and helpful. Avoid slang or hype.
 | "Deal claimed" | "تثبّت العرض" | "Offre réservée" |
 | "No deals here yet" | "ما كايناش عروض دابا" | "Pas d'offres pour l'instant" |
 
+Additional guidance:
+- Use **Arabic-Indic numerals** when the interface is fully Arabic.
+- Keep CTAs under 12 characters where possible.
+- Verify RTL alignment on Home, Wallet, and Profile.
+
 ---
 
-## 9. Brand Voice Checklist
+## 9. Content Patterns Library
+
+| Pattern | Example | Notes |
+| --- | --- | --- |
+| Value headline | "25% off nearby" | Lead with savings |
+| Distance detail | "120m away" | Always include distance |
+| Limited-time | "Ends in 8 minutes" | Keep urgency factual |
+| CTA (primary) | "Claim Deal" | Verb + value |
+| CTA (secondary) | "View Details" | Clear and simple |
+| Empty state | "No deals here yet" | Add a next step |
+| Error state | "Can't reach the server" | Offer retry |
+
+---
+
+## 10. Brand Voice Checklist
 
 Before publishing any copy, ask:
 
@@ -247,9 +278,12 @@ Before publishing any copy, ask:
 
 **Dependencies**
 - STRAT-01: Section 2
+- BRAND-00: Section 5
 
 **Related Specs**
 - BRAND-02: Section 2
+- BRAND-04: Section 2
+- BRAND-09: Section 3
 - DES-01: Section 1
 
 **Implementation Guides**
@@ -260,5 +294,6 @@ Before publishing any copy, ask:
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 2.1 | 2026-01-30 | Brand Lead | Added audience modulation and content patterns |
 | 2.0 | 2026-01-30 | Brand Lead | Pivoted to modern utility voice |
 | 1.0 | 2026-01-30 | Brand Lead | Standardized metadata and cross-references |

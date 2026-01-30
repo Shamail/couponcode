@@ -1,6 +1,6 @@
 ---
 document_id: TECH-06
-version: 1.2
+version: 1.3
 status: Final
 priority: P0
 last_updated: 2026-01-30
@@ -207,26 +207,40 @@ curl -X GET "https://api.frictionless.ma/api/v1/sellers/heatmap?lat=33.5731&lng=
 #### Response
 
 **Success (200 OK):**
+
+The response includes two data layers: `live` (last 30 minutes) and `recent` (30 min - 2 hours):
+
 ```typescript
 interface HeatmapResponse {
   success: true;
   data: {
-    type: "FeatureCollection";
-    features: HeatmapFeature[];
+    // Live data: last 30 minutes (high confidence)
+    live: HeatmapLayer;
+    // Recent data: 30 min - 2 hours (lower weight, for context)
+    recent: HeatmapLayer;
+    // Combined statistics
+    combined: {
+      totalUsers: number;
+      activityLevel: "low" | "medium" | "high";
+    };
     metadata: {
       center: [number, number];  // [lng, lat]
       radius: number;
       resolution: number;
-      window: number;
       generatedAt: string;       // ISO 8601
-      totalCheckIns: number;     // Total check-ins in area
-      uniqueUsers: number;       // Anonymized count
     };
   };
   meta: {
     timestamp: string;
     requestId: string;
   };
+}
+
+interface HeatmapLayer {
+  type: "FeatureCollection";
+  features: HeatmapFeature[];
+  totalUsers: number;
+  activityLevel: "low" | "medium" | "high";
 }
 
 interface HeatmapFeature {
@@ -248,41 +262,53 @@ interface HeatmapFeature {
 {
   "success": true,
   "data": {
-    "type": "FeatureCollection",
-    "features": [
-      {
-        "type": "Feature",
-        "geometry": {
-          "type": "Point",
-          "coordinates": [-7.5898, 33.5731]
-        },
-        "properties": {
-          "weight": 0.85,
-          "count": 42,
-          "intensity": "high"
+    "live": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-7.5898, 33.5731]
+          },
+          "properties": {
+            "weight": 0.85,
+            "count": 42,
+            "intensity": "high"
+          }
         }
-      },
-      {
-        "type": "Feature",
-        "geometry": {
-          "type": "Point",
-          "coordinates": [-7.5902, 33.5735]
-        },
-        "properties": {
-          "weight": 0.45,
-          "count": 18,
-          "intensity": "medium"
+      ],
+      "totalUsers": 42,
+      "activityLevel": "high"
+    },
+    "recent": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-7.5902, 33.5735]
+          },
+          "properties": {
+            "weight": 0.45,
+            "count": 18,
+            "intensity": "medium"
+          }
         }
-      }
-    ],
+      ],
+      "totalUsers": 47,
+      "activityLevel": "medium"
+    },
+    "combined": {
+      "totalUsers": 89,
+      "activityLevel": "high"
+    },
     "metadata": {
       "center": [-7.5898, 33.5731],
       "radius": 500,
       "resolution": 50,
-      "window": 15,
-      "generatedAt": "2024-01-15T14:30:00.123Z",
-      "totalCheckIns": 1250,
-      "uniqueUsers": 89
+      "generatedAt": "2024-01-15T14:30:00.123Z"
     }
   },
   "meta": {
@@ -291,6 +317,15 @@ interface HeatmapFeature {
   }
 }
 ```
+
+#### Visual Rendering Guidance
+
+| Layer | Opacity | Time Window | Purpose |
+|-------|---------|-------------|---------|
+| `live` | 100% | Last 30 minutes | High-confidence current activity |
+| `recent` | 50% | 30 min - 2 hours | Historical context, lower weight |
+
+The Seller app should render both layers with clear visual distinction to help merchants understand current vs recent foot traffic.
 
 #### Implementation Notes
 
@@ -591,6 +626,127 @@ curl -X POST https://api.frictionless.ma/api/v1/deals \
 
 ---
 
+---
+
+### 5. GET `/api/v1/deals/geofencing`
+
+**Purpose:** Returns nearby deals for geofence registration (Buyer app background alerts).
+
+**Authentication:** Required (Buyer)
+
+**Rate Limit:** 10 requests/minute per user (called on app open and significant location change)
+
+#### Request Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `lat` | number | Yes | - | Current latitude |
+| `lng` | number | Yes | - | Current longitude |
+| `radius` | number | No | 2000 | Search radius in meters (max: 5000) |
+
+**Example Request:**
+```bash
+curl -X GET "https://api.frictionless.ma/api/v1/deals/geofencing?lat=33.5731&lng=-7.5898&radius=2000" \
+  -H "Authorization: Bearer eyJhbG..."
+```
+
+#### Response
+
+**Success (200 OK):**
+```typescript
+interface GeofencingDealsResponse {
+  success: true;
+  data: {
+    deals: GeofenceDeal[];
+  };
+  meta: {
+    timestamp: string;
+    requestId: string;
+  };
+}
+
+interface GeofenceDeal {
+  id: string;           // Deal ID
+  storeId: string;      // Store ID (used as geofence identifier)
+  storeName: string;    // For notification display
+  description: string;  // Short deal description
+  lat: number;          // Store latitude
+  lng: number;          // Store longitude
+}
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "deals": [
+      {
+        "id": "deal_abc123",
+        "storeId": "store_xyz789",
+        "storeName": "Café Central",
+        "description": "20% off any coffee",
+        "lat": 33.5731,
+        "lng": -7.5898
+      },
+      {
+        "id": "deal_def456",
+        "storeId": "store_uvw012",
+        "storeName": "Pizza Express",
+        "description": "Buy 1 Get 1 Free",
+        "lat": 33.5745,
+        "lng": -7.5912
+      }
+    ]
+  },
+  "meta": {
+    "timestamp": "2024-01-15T14:30:00.123Z",
+    "requestId": "req_geo123"
+  }
+}
+```
+
+#### Implementation Notes
+
+- Returns max 20 deals (iOS geofence limit)
+- Only returns deals with active offers (not expired, not fully redeemed)
+- Deals are sorted by proximity and deal quality
+- Response is cached for 5 minutes at edge
+
+---
+
+## Push Notification Targeting
+
+### Smart Push Logic
+
+The backend uses extended location TTL (2 hours) for intelligent push targeting:
+
+```typescript
+// Notification targeting based on last known location
+interface PushTargetingQuery {
+  // Fresh location (< 30 min): "Deal nearby now!"
+  live: {
+    window: '30 minutes',
+    message: '{discount}% off at {store} - nearby now!'
+  };
+  // Recent location (30 min - 2 hours): "Deal near where you were!"
+  recent: {
+    window: '2 hours',
+    message: '{discount}% off at {store} - near where you were!'
+  };
+}
+```
+
+### Push Notification Events
+
+| Event | Trigger | Targeting | Message |
+|-------|---------|-----------|---------|
+| Flash deal created | Seller creates flash deal | Users within 500m (2hr lookback) | Contextual based on location freshness |
+| Deal expiring | Claimed deal expires in 15 min | User who claimed | "Your deal at {store} expires in 15 min!" |
+| Daily digest | Cron (12pm, 6pm) | Users with location history | "X deals near your usual spots" |
+
+---
+
 ## Additional Endpoints (Future Reference)
 
 | Endpoint | Method | Purpose | Priority |
@@ -602,6 +758,7 @@ curl -X POST https://api.frictionless.ma/api/v1/deals \
 | `/api/v1/deals/:id` | GET | Get deal details | P1 |
 | `/api/v1/deals/:id` | PATCH | Update deal | P1 |
 | `/api/v1/deals/:id` | DELETE | Soft delete deal | P1 |
+| `/api/v1/deals/geofencing` | GET | Deals for geofence registration | P0 |
 | `/api/v1/sellers/qr` | GET | Generate dynamic QR + color | P0 |
 | `/api/v1/buyers/history` | GET | Redemption history | P2 |
 | `/api/v1/sellers/analytics` | GET | Dashboard metrics | P2 |
@@ -723,13 +880,16 @@ API follows URL versioning (`/api/v1/`). Breaking changes require new version. N
 - TECH-00: Section 2
 
 **Related Specs**
-- PRD-01: Section 3
+- PRD-01: Section 3 (Background deal alerts)
 - PRD-02: Section 3
+- TECH-02: Section on Background Location Strategy
+- TECH-03: Section on Live/Recent Heatmap Layers
 - TECH-04: Section 2
 - METRICS-03: Section 2
 - DATA-01: Section 2
 - THREAD-01: Section 3
 - THREAD-02: Section 3
+- ADR-002: Background Location Strategy
 
 **Implementation Guides**
 - IMPL-02: Section 3
@@ -738,6 +898,7 @@ API follows URL versioning (`/api/v1/`). Breaking changes require new version. N
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.3 | 2026-01-31 | Engineering Lead | Added live/recent heatmap layers, geofencing endpoint, push targeting logic |
 | 1.2 | 2026-01-30 | Engineering Lead | Updated terminology and heatmap params |
 | 1.1 | 2026-01-30 | Engineering Lead | Added data dictionary and thread references |
 | 1.0 | 2026-01-30 | Engineering Lead | Standardized metadata and cross-references |

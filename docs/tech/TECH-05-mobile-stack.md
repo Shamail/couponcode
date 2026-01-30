@@ -1,6 +1,6 @@
 ---
 document_id: TECH-05
-version: 1.2
+version: 1.3
 status: Final
 priority: P1
 last_updated: 2026-01-30
@@ -697,16 +697,435 @@ export function useLocationTracking({
 
 ---
 
-## 5. Provider Setup
+## 5. Background Geofencing
+
+### Overview
+
+Background geofencing enables deal notifications even when the app is closed, using zero-battery-drain OS-managed location monitoring.
+
+### 5.1 App Configuration for Geofencing
+
+Update `app.config.ts` to include geofencing capabilities:
 
 ```typescript
-// apps/buyer/app/_layout.tsx (and apps/seller/app/_layout.tsx)
+// apps/buyer/app.config.ts
+import { ExpoConfig, ConfigContext } from 'expo/config';
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: 'Frictionless',
+  slug: 'frictionless-buyer',
+  version: '1.0.0',
+  orientation: 'portrait',
+  icon: './assets/icon.png',
+  scheme: 'frictionless',
+  plugins: [
+    [
+      '@rnmapbox/maps',
+      {
+        RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOAD_TOKEN,
+        RNMapboxMapsVersion: '11.0.0',
+      },
+    ],
+    [
+      'expo-location',
+      {
+        // Only "When In Use" permission - geofencing works with this
+        locationWhenInUsePermission:
+          'Frictionless uses your location to show nearby deals and notify you when you\'re near one.',
+        // Enable geofencing background mode
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: false, // Not needed for geofencing
+        isAndroidForegroundServiceEnabled: true,
+      },
+    ],
+    [
+      'expo-task-manager',
+      // No additional config needed
+    ],
+    [
+      'expo-notifications',
+      {
+        icon: './assets/notification-icon.png',
+        color: '#6366F1',
+      },
+    ],
+    [
+      'expo-camera',
+      {
+        cameraPermission: 'Frictionless needs camera access to scan QR codes for redemption.',
+      },
+    ],
+  ],
+  ios: {
+    supportsTablet: false,
+    bundleIdentifier: 'ma.frictionless.buyer',
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription:
+        'Frictionless uses your location to show nearby deals and notify you when you\'re near one.',
+      // Required for geofencing
+      UIBackgroundModes: ['location', 'fetch'],
+    },
+  },
+  android: {
+    package: 'ma.frictionless.buyer',
+    permissions: [
+      'ACCESS_COARSE_LOCATION',
+      'ACCESS_FINE_LOCATION',
+      'FOREGROUND_SERVICE',
+      'FOREGROUND_SERVICE_LOCATION',
+      'CAMERA',
+      'RECEIVE_BOOT_COMPLETED', // For geofence persistence
+    ],
+  },
+});
+```
+
+### 5.2 TaskManager Setup
+
+Register the background task at app startup:
+
+```typescript
+// apps/buyer/src/services/geofencing/task.ts
+
+import * as TaskManager from 'expo-task-manager';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export const GEOFENCE_TASK = 'deal-geofence-task';
+
+// Define task OUTSIDE of any component (module level)
+TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
+  if (error) {
+    console.error('[Geofence] Task error:', error);
+    return;
+  }
+
+  const { eventType, region } = data as {
+    eventType: Location.GeofencingEventType;
+    region: Location.LocationRegion;
+  };
+
+  console.log('[Geofence] Event:', eventType, 'Region:', region.identifier);
+
+  if (eventType === Location.GeofencingEventType.Enter) {
+    await handleGeofenceEntry(region);
+  }
+});
+
+async function handleGeofenceEntry(region: Location.LocationRegion): Promise<void> {
+  try {
+    // Get cached deal data
+    const cachedDeals = await AsyncStorage.getItem('geofence_deals');
+    if (!cachedDeals) return;
+
+    const deals = JSON.parse(cachedDeals) as GeofenceDeal[];
+    const deal = deals.find(d => d.storeId === region.identifier);
+    if (!deal) return;
+
+    // Check if we've notified recently (prevent spam)
+    const lastNotified = await AsyncStorage.getItem(`notified_${region.identifier}`);
+    if (lastNotified) {
+      const elapsed = Date.now() - parseInt(lastNotified, 10);
+      if (elapsed < 30 * 60 * 1000) return; // 30 min cooldown
+    }
+
+    // Show notification
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Deal nearby at ${deal.storeName}!`,
+        body: deal.description,
+        data: {
+          dealId: deal.id,
+          storeId: deal.storeId,
+          type: 'geofence_entry',
+        },
+        sound: 'default',
+      },
+      trigger: null, // Immediate
+    });
+
+    // Record notification time
+    await AsyncStorage.setItem(`notified_${region.identifier}`, Date.now().toString());
+  } catch (error) {
+    console.error('[Geofence] Handle entry error:', error);
+  }
+}
+
+interface GeofenceDeal {
+  id: string;
+  storeId: string;
+  storeName: string;
+  description: string;
+  lat: number;
+  lng: number;
+}
+```
+
+### 5.3 useGeofencing Hook
+
+Hook for managing geofence registration:
+
+```typescript
+// apps/buyer/hooks/useGeofencing.ts
+
+import { useEffect, useCallback, useRef } from 'react';
+import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient } from '@shared/api/client';
+import { GEOFENCE_TASK } from '../services/geofencing/task';
+
+interface UseGeofencingOptions {
+  enabled: boolean;
+  refreshOnLocationChange?: boolean;
+}
+
+interface GeofenceDeal {
+  id: string;
+  storeId: string;
+  storeName: string;
+  description: string;
+  lat: number;
+  lng: number;
+}
+
+export function useGeofencing({
+  enabled,
+  refreshOnLocationChange = true,
+}: UseGeofencingOptions) {
+  const lastRefreshLocation = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Register geofences for nearby deals
+  const registerGeofences = useCallback(async (deals: GeofenceDeal[]) => {
+    try {
+      // Stop existing geofences first
+      const isRegistered = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+      if (isRegistered) {
+        await Location.stopGeofencingAsync(GEOFENCE_TASK);
+      }
+
+      if (deals.length === 0) return;
+
+      // Limit to 20 for iOS compatibility
+      const regions = deals.slice(0, 20).map(deal => ({
+        identifier: deal.storeId,
+        latitude: deal.lat,
+        longitude: deal.lng,
+        radius: 150, // meters
+        notifyOnEnter: true,
+        notifyOnExit: false,
+      }));
+
+      // Cache deal data for background task
+      await AsyncStorage.setItem('geofence_deals', JSON.stringify(deals.slice(0, 20)));
+
+      // Start geofencing
+      await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
+      console.log(`[Geofence] Registered ${regions.length} geofences`);
+    } catch (error) {
+      console.error('[Geofence] Registration error:', error);
+    }
+  }, []);
+
+  // Refresh geofences based on current location
+  const refreshGeofences = useCallback(async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+
+      // Skip if location hasn't changed significantly (500m)
+      if (lastRefreshLocation.current) {
+        const distance = calculateDistance(
+          lastRefreshLocation.current.lat,
+          lastRefreshLocation.current.lng,
+          latitude,
+          longitude
+        );
+        if (distance < 500) return;
+      }
+
+      lastRefreshLocation.current = { lat: latitude, lng: longitude };
+
+      // Fetch nearby deals for geofencing
+      const response = await apiClient<{ deals: GeofenceDeal[] }>(
+        `/v1/deals/geofencing?lat=${latitude}&lng=${longitude}&radius=2000`
+      );
+
+      await registerGeofences(response.deals);
+    } catch (error) {
+      console.error('[Geofence] Refresh error:', error);
+    }
+  }, [registerGeofences]);
+
+  // Stop all geofencing
+  const stopGeofencing = useCallback(async () => {
+    try {
+      const isRegistered = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+      if (isRegistered) {
+        await Location.stopGeofencingAsync(GEOFENCE_TASK);
+        await AsyncStorage.removeItem('geofence_deals');
+        console.log('[Geofence] Stopped all geofences');
+      }
+    } catch (error) {
+      console.error('[Geofence] Stop error:', error);
+    }
+  }, []);
+
+  // Setup on mount
+  useEffect(() => {
+    if (!enabled) {
+      stopGeofencing();
+      return;
+    }
+
+    refreshGeofences();
+  }, [enabled, refreshGeofences, stopGeofencing]);
+
+  return {
+    refreshGeofences,
+    registerGeofences,
+    stopGeofencing,
+  };
+}
+
+function calculateDistance(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+): number {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+```
+
+### 5.4 Settings Toggle
+
+Allow users to enable/disable geofencing:
+
+```typescript
+// apps/buyer/components/settings/GeofencingToggle.tsx
+
+import { View, Text, Switch, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useEffect } from 'react';
+
+interface GeofencingToggleProps {
+  onToggle: (enabled: boolean) => void;
+}
+
+export function GeofencingToggle({ onToggle }: GeofencingToggleProps) {
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem('geofencing_enabled').then(value => {
+      setEnabled(value !== 'false');
+    });
+  }, []);
+
+  const handleToggle = async (value: boolean) => {
+    setEnabled(value);
+    await AsyncStorage.setItem('geofencing_enabled', value.toString());
+    onToggle(value);
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>Deal alerts when nearby</Text>
+        <Text style={styles.description}>
+          Get notified when you're near a store with an active deal.
+          Uses minimal battery.
+        </Text>
+      </View>
+      <Switch
+        value={enabled}
+        onValueChange={handleToggle}
+        trackColor={{ false: '#3f3f46', true: '#6366F1' }}
+        thumbColor={enabled ? '#FFFFFF' : '#A1A1AA'}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#18181B',
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  textContainer: {
+    flex: 1,
+    marginRight: 16,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  description: {
+    fontSize: 14,
+    color: '#A1A1AA',
+    lineHeight: 20,
+  },
+});
+```
+
+### 5.5 Battery Impact
+
+| Feature | Battery Impact | Permission | Notes |
+|---------|---------------|------------|-------|
+| Foreground tracking (30s) | ~5%/hour active | When In Use | Current behavior |
+| Geofencing (20 zones) | < 0.5%/day | When In Use | OS-managed |
+| Smart push (server-side) | 0% | N/A | No client impact |
+
+---
+
+## 6. Provider Setup
+
+```typescript
+// apps/buyer/app/_layout.tsx
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '@shared/lib/query-client';
+import { useGeofencing } from '../hooks/useGeofencing';
 import '@shared/lib/mapbox'; // Initialize Mapbox
+import '../services/geofencing/task'; // Register TaskManager task
 
 export default function RootLayout() {
+  const [geofencingEnabled, setGeofencingEnabled] = useState(true);
+
+  // Load geofencing preference
+  useEffect(() => {
+    AsyncStorage.getItem('geofencing_enabled').then(value => {
+      setGeofencingEnabled(value !== 'false');
+    });
+  }, []);
+
+  // Initialize geofencing
+  useGeofencing({ enabled: geofencingEnabled });
+
   return (
     <QueryClientProvider client={queryClient}>
       <Stack
@@ -885,10 +1304,12 @@ const styles = StyleSheet.create({
 - DES-01: Section 2
 
 **Related Specs**
-- PRD-01: Section 3
+- PRD-01: Section 3 (Background deal alerts)
 - PRD-02: Section 3
+- TECH-02: Section on Background Location Strategy
 - DES-03: Section 2
 - THREAD-03: Section 3
+- ADR-002: Background Location Strategy
 
 **Implementation Guides**
 - GUIDE-01: Section 2
@@ -898,6 +1319,7 @@ const styles = StyleSheet.create({
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.3 | 2026-01-31 | Engineering Lead | Added Background Geofencing section (5), useGeofencing hook, TaskManager setup |
 | 1.2 | 2026-01-30 | Engineering Lead | Updated request abort handling |
 | 1.1 | 2026-01-30 | Engineering Lead | Added Android fragmentation strategy |
 | 1.0 | 2026-01-30 | Engineering Lead | Standardized metadata and cross-references |

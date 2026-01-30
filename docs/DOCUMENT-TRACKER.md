@@ -1,6 +1,6 @@
 ---
 document_id: META-TRACKER
-version: 1.2
+version: 1.4
 status: Final
 priority: P1
 last_updated: 2026-01-30
@@ -36,6 +36,7 @@ Use this tracker alongside the Documentation Hub for navigation and the Gap Anal
 | PRD-02 | Seller App (Shadow) | Product Lead | P0 | Complete | 2026-01-30 | Release |
 | TECH-00 | System Architecture | Engineering Lead | P0 | Complete | 2026-01-30 | Release |
 | ADR-001 | Stack Decisions | Engineering Lead | P1 | Complete | 2026-01-30 | Release |
+| ADR-002 | Background Location Strategy | Engineering Lead | P1 | Complete | 2026-01-31 | Release |
 | TECH-01 | Neon Database Schema | Engineering Lead | P0 | Complete | 2026-01-30 | Release |
 | DATA-01 | Schema Dictionary | Engineering Lead | P0 | Complete | 2026-01-30 | Release |
 | TECH-02 | Location Ingestion | Engineering Lead | P1 | Complete | 2026-01-30 | Release |
@@ -49,10 +50,36 @@ Use this tracker alongside the Documentation Hub for navigation and the Gap Anal
 | TECH-10 | Security & Compliance | Security Lead | P1 | Complete | 2026-01-30 | Quarterly |
 | TECH-11 | Failure Modes & Resilience | Engineering Lead | P1 | Complete | 2026-01-30 | Release |
 | DES-01 | Component Specifications | Design Lead | P1 | Complete | 2026-01-30 | Release |
-| DES-02 | Accessibility Guidelines | Design Lead | P2 | Complete | 2026-01-30 | Quarterly |
-| DES-03 | Motion Guidelines | Design Lead | P2 | Complete | 2026-01-30 | Quarterly |
+| DES-02 | Accessibility Guidelines | Design Lead | P0 | Complete | 2026-01-30 | Quarterly |
+| DES-03 | Motion Guidelines | Design Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| DES-04 | Design Tokens | Design Lead | P0 | Complete | 2026-01-30 | Release |
+| DES-05 | Design Principles | Design Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| DES-06 | Layout System | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-07 | Iconography | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-08 | Component States | Design Lead | P0 | Complete | 2026-01-30 | Release |
+| DES-09 | Theming Architecture | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-10 | Core Components | Design Lead | P0 | Complete | 2026-01-30 | Release |
+| DES-11 | Container Components | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-12 | Navigation Components | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-13 | Feedback Components | Design Lead | P0 | Complete | 2026-01-30 | Release |
+| DES-14 | Data Display Components | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-15 | Form Patterns | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-16 | Navigation Patterns | Design Lead | P2 | Complete | 2026-01-30 | Release |
+| DES-17 | Map Patterns | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-18 | Localization Patterns | Design Lead | P1 | Complete | 2026-01-30 | Release |
+| DES-19 | Offline & Degraded Patterns | Design Lead | P2 | Complete | 2026-01-30 | Release |
+| BRAND-00 | Brand Overview & Manifesto | Brand Lead | P0 | Complete | 2026-01-30 | Quarterly |
 | BRAND-01 | Voice & Tone Guide | Brand Lead | P1 | Complete | 2026-01-30 | Quarterly |
 | BRAND-02 | Membership & Rewards | Brand Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| BRAND-03 | Logo & Marks | Brand Lead | P0 | Complete | 2026-01-30 | Quarterly |
+| BRAND-04 | Color System | Brand Lead | P0 | Complete | 2026-01-30 | Quarterly |
+| BRAND-05 | Typography | Brand Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| BRAND-06 | Iconography | Brand Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| BRAND-07 | Imagery & Photography | Brand Lead | P2 | Complete | 2026-01-30 | Quarterly |
+| BRAND-08 | Map Visual Identity | Brand Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| BRAND-09 | Localization Guidelines | Brand Lead | P1 | Complete | 2026-01-30 | Quarterly |
+| BRAND-10 | Brand Applications | Brand Lead | P2 | Complete | 2026-01-30 | Quarterly |
+| BRAND-11 | Asset Library Index | Brand Lead | P2 | Complete | 2026-01-30 | Quarterly |
 | BIZ-01 | Monetization Model | Business Lead | P0 | Complete | 2026-01-30 | Quarterly |
 | BIZ-02 | Unit Economics | Finance Lead | P1 | Complete | 2026-01-30 | Quarterly |
 | BIZ-03 | GTM Strategy | Business Lead | P1 | Complete | 2026-01-30 | Quarterly |
@@ -91,10 +118,10 @@ Use this tracker alongside the Documentation Hub for navigation and the Gap Anal
 | Strategy | STRAT-01, STRAT-02 | Complete |
 | Product | PRD-01, PRD-02 | Complete |
 | Technical | TECH-00 to TECH-11 | Complete |
-| ADR | ADR-001 | Complete |
+| ADR | ADR-001, ADR-002 | Complete |
 | Data | DATA-01 | Complete |
-| Design | DES-01 to DES-03 | Complete |
-| Brand | BRAND-01, BRAND-02 | Complete |
+| Design | DES-01 to DES-19 | Complete |
+| Brand | BRAND-00 to BRAND-11 | Complete |
 | Business | BIZ-01 to BIZ-04 | Complete |
 | Operations | OPS-01 to OPS-05 | Complete |
 | Implementation | IMPL-01, IMPL-02 | Complete |
@@ -126,6 +153,8 @@ Use this tracker alongside the Documentation Hub for navigation and the Gap Anal
 
 | Version | Date | Author | Notes |
 | --- | --- | --- | --- |
+| 1.4 | 2026-01-31 | Documentation Lead | Added ADR-002 (Background Location Strategy) |
+| 1.3 | 2026-01-30 | Documentation Lead | Added brand and design system expansion |
 | 1.2 | 2026-01-30 | Documentation Lead | Updated rebrand terminology and titles |
 | 1.1 | 2026-01-30 | Documentation Lead | Added new docs and thread coverage |
 | 1.0 | 2026-01-30 | Documentation Lead | Initial tracker |
